@@ -1,0 +1,45 @@
+# config.yaml — Parallax v0a engine + built-in workers
+# Run with: iii --config config.yaml
+# NOTE: keep the engine and the iii-sdk / iii-browser-sdk packages on the same
+# minor version. This file targets the 0.18.x line (no top-level `port` —
+# the engine bus defaults to 49134).
+
+workers:
+  - name: iii-worker-manager       # trusted listener for local workers (SDK)
+    config:                        # NON-default port: keeps other local iii apps
+      port: 8112                   # (e.g. AgentMemory) from attaching to this engine.
+
+  # Browser-facing listener (Linkly ch7 pattern). auth::browser gates every
+  # connection (?token= query param); only expose_functions are reachable.
+  - name: iii-worker-manager
+    config:
+      host: 0.0.0.0                 # Tailscale-routed devices can open /scratch too
+      port: 3112
+      rbac:
+        auth_function_id: auth::browser
+        expose_functions:
+          - match("render::list")
+          - match("stream::*")
+
+  - name: iii-http
+    config:
+      port: 3111
+      host: 0.0.0.0                 # reachable from a Tailscale-routed iPad
+      default_timeout: 60000        # 60s — Gemini headroom
+      cors:
+        allowed_origins: ['*']
+        allowed_methods: [GET, POST, OPTIONS]
+
+  - name: iii-stream               # store + realtime push + stream triggers
+    config:                         # (0.18: stream rides the engine; no own port)
+      adapter:
+        name: kv
+        config:
+          store_method: file_based
+          file_path: ./data/streams_store.db
+
+  - name: iii-observability
+    config:
+      enabled: true
+      exporter: memory
+      logs_enabled: true

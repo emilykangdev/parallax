@@ -1,0 +1,20 @@
+{
+  "name": "provider-gemini",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "iii worker exposing provider::gemini::render (Gemini 2.5 Flash Image)",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^2.7.0",
+    "iii-sdk": "^0.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

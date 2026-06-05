@@ -1,0 +1,22 @@
+# secrets — the encrypted .env IS tracked (ciphertext + public key only).
+# Never commit private keys or plaintext local overrides:
+.env.keys
+*/.env.keys
+.env.local
+*/.env.local
+
+# runtime data + generated images (keep the dirs, ignore contents)
+/data/*
+!/data/.gitkeep
+/blob/in/*
+!/blob/in/.gitkeep
+/blob/out/*
+!/blob/out/.gitkeep
+
+# node
+node_modules/
+dist/
+*.log
+.DS_Store
+.gstack/
+tmp
