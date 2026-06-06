@@ -1,19 +1,33 @@
-# config.yaml — Parallax v0a engine + built-in workers
+# config.yaml — Parallax engine + built-in workers
 # Run with: iii --config config.yaml
 # NOTE: keep the engine and the iii-sdk / iii-browser-sdk packages on the same
 # minor version. This file targets the 0.18.x line (no top-level `port` —
 # the engine bus defaults to 49134).
+#
+# IMPORTANT: do NOT put inline `# comments` after a `name:` value — iii's config
+# parser swallows the rest of the line into the worker name (e.g. the name becomes
+# "database # ..."), which breaks `iii worker status/add`. Keep comments on their own lines.
 
 workers:
-  - name: iii-worker-manager       # trusted listener for local workers (SDK)
-    config:                        # NON-default port: keeps other local iii apps
-      port: 8112                   # (e.g. AgentMemory) from attaching to this engine.
+  # Default-port trusted listener (49134). REQUIRED for engine-managed BINARY workers
+  # (e.g. `database`): the engine spawns them with no engine URL, so they dial the
+  # iii default ws://localhost:49134. Without this, the database worker crash-loops
+  # with "Connection refused (os error 61)".
+  - name: iii-worker-manager
+    config:
+      port: 49134
+
+  # trusted listener for our SOURCE workers (parallax-render etc. hardcode 8112).
+  - name: iii-worker-manager
+    config:
+      port: 8112
 
   # Browser-facing listener (Linkly ch7 pattern). auth::browser gates every
   # connection (?token= query param); only expose_functions are reachable.
+  # host 0.0.0.0 so Tailscale-routed devices can open /scratch too.
   - name: iii-worker-manager
     config:
-      host: 0.0.0.0                 # Tailscale-routed devices can open /scratch too
+      host: 0.0.0.0
       port: 3112
       rbac:
         auth_function_id: auth::browser
@@ -21,22 +35,59 @@ workers:
           - match("render::list")
           - match("stream::*")
 
+  # HTTP endpoints. host 0.0.0.0 = reachable from a Tailscale-routed iPad.
+  # default_timeout 60s gives Gemini headroom.
   - name: iii-http
     config:
       port: 3111
-      host: 0.0.0.0                 # reachable from a Tailscale-routed iPad
-      default_timeout: 60000        # 60s — Gemini headroom
+      host: 0.0.0.0
+      default_timeout: 60000
       cors:
         allowed_origins: ['*']
         allowed_methods: [GET, POST, OPTIONS]
 
-  - name: iii-stream               # store + realtime push + stream triggers
-    config:                         # (0.18: stream rides the engine; no own port)
+  # store + realtime push + stream triggers (0.18: stream rides the engine; no own port)
+  - name: iii-stream
+    config:
       adapter:
         name: kv
         config:
           store_method: file_based
           file_path: ./data/streams_store.db
+
+  # v0b: SQLite source of truth (repos / diagrams / diagram_index).
+  # install once: `iii worker add database`
+  - name: database
+    config:
+      databases:
+        primary:
+          pool: { acquire_timeout_ms: 5000, idle_timeout_ms: 30000, max: 10 }
+          url: sqlite:./data/iii.db
+
+  # ── source workers, supervised by the engine ───────────────────────────────
+  # One iii-exec block PER long-lived worker: `exec:` runs sequentially and only the
+  # FINAL command stays alive, so each persistent worker needs its own block. The
+  # engine launches + restarts these, so `iii --config config.yaml` is the single
+  # command to bring up the whole stack (no more one-terminal-per-worker). `watch`
+  # globs hot-reload a worker when its src changes. dotenvx-wrap.sh injects secrets.
+  # NOTE: don't also run `npm run dev:*` for these — you'd double-register the worker.
+  - name: iii-exec
+    config:
+      watch: ['./workers/provider-gemini/src']
+      exec:
+        - bash scripts/dotenvx-wrap.sh tsx workers/provider-gemini/src/index.ts
+
+  - name: iii-exec
+    config:
+      watch: ['./workers/parallax-render/src']
+      exec:
+        - bash scripts/dotenvx-wrap.sh tsx workers/parallax-render/src/index.ts
+
+  - name: iii-exec
+    config:
+      watch: ['./workers/parallax-comprehension/src']
+      exec:
+        - bash scripts/dotenvx-wrap.sh tsx workers/parallax-comprehension/src/index.ts
 
   - name: iii-observability
     config:
