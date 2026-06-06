@@ -21,6 +21,17 @@ export const GALLERY_HTML = `<!doctype html>
   </head>
   <body>
     <div id="grid"></div>
+    <script>
+      // crypto.randomUUID only exists in secure contexts (https / localhost). Over the
+      // tailnet the page is plain http on a non-localhost host, so the iii SDK dies
+      // generating message IDs. crypto.getRandomValues IS available in insecure
+      // contexts — polyfill before the module script imports the SDK (verified 2026-06-06).
+      if (!crypto.randomUUID) {
+        crypto.randomUUID = () =>
+          '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
+            (+c ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (+c / 4)))).toString(16))
+      }
+    </script>
     <script type="module">
       import { registerWorker } from 'https://esm.sh/iii-browser-sdk@0.18.0'
       const iii = registerWorker('ws://' + location.hostname + ':3112?token=' + encodeURIComponent('__BROWSER_TOKEN__'))

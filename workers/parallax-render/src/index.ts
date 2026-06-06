@@ -9,10 +9,17 @@ import { GALLERY_HTML } from './gallery.js'
 
 const iii = registerWorker(process.env.III_URL ?? 'ws://localhost:8112')
 
+// Tuned 2026-06-06 against a real dense whiteboard drawing: the old "preserve every
+// labeled component / do not invent" wording made the model return a near-photocopy.
+// Transformation requires explicitly licensing it to redraw from scratch and DROP detail.
 const RENDER_PROMPT = `
-You are polishing a hand-drawn sketch into a clear, story-told-left-to-right comic-style image.
-Preserve every labeled component and the intended flow. Do not invent content. If the caption
-conflicts with the sketch, prefer the sketch.  Caption: {{caption}}
+Create a BRAND-NEW comic-strip illustration that tells the story of this whiteboard drawing.
+Do NOT reproduce or imitate the original image, its layout, or its handwriting — redraw from
+scratch in a completely different style: 4-6 clean panels read left to right, bold ink-and-color
+comic art, the system's components as characters, short readable printed labels, speech bubbles
+for the key interactions. Choose the 5-8 most important components and the main flow between
+them; drop all marginal notes and minor details. If a caption is provided, let it guide which
+components matter most.  Caption: {{caption}}
 `.trim()
 
 interface RenderRecord {
@@ -105,6 +112,28 @@ const renderCreate = iii.registerFunction(
       function_id: 'stream::set',
       payload: { stream_name: 'renders', group_id: 'all', item_id: id, data },
     })
+
+    // Sketch row in SQLite — the future judge worker's history (schema owned by
+    // parallax-comprehension; see tmp/briefs/2026-06-06-v1-drawing-loop.md). The comic must
+    // still come back if this fails (comprehension worker not up yet → table missing), so
+    // log loudly and continue — never 500 the drawing loop over its own bookkeeping.
+    const repo = String(req.query_params?.repo ?? '') || null
+    try {
+      await iii.trigger({
+        function_id: 'database::execute',
+        payload: {
+          db: 'primary',
+          sql: `INSERT INTO sketches (id, repo_slug, caption, source_path, output_path, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)`,
+          params: [id, repo, caption, sourcePath, outputPath, data.createdAt],
+        },
+      })
+    } catch (err) {
+      log.error('sketch row insert FAILED — judge history is missing this drawing', {
+        id,
+        error: String(err),
+      })
+    }
 
     res.status(200)
     res.headers({ 'content-type': 'image/png' })

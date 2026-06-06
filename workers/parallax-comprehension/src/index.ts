@@ -35,6 +35,17 @@ async function ensureSchema() {
     raw_text   TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`)
+  // Judge-ready drawing history (see tmp/briefs/2026-06-06-v1-drawing-loop.md). One row per
+  // render::create; id matches the blob filenames + stream item. repo_slug is nullable —
+  // repo targeting is deliberately deferred.
+  await db.exec(`CREATE TABLE IF NOT EXISTS sketches (
+    id          TEXT PRIMARY KEY,
+    repo_slug   TEXT,
+    caption     TEXT NOT NULL,
+    source_path TEXT NOT NULL,
+    output_path TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+  )`)
 }
 
 // Create the schema BEFORE registering the function/trigger, so the route can never go live on the
