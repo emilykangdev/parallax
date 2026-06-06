@@ -132,6 +132,15 @@ produced the code. Run it before shipping anything touching auth, the render pat
 pointing `git config core.hooksPath` at `.husky/_`. No setup beyond `npm install`. Bypass with
 `git commit --no-verify` only when fixing the gate itself.
 
+**Guardrails are worktree-local — a gate running in one worktree must never reach into `main` or
+another worktree.** Every script anchors its cwd with `git rev-parse --show-toplevel` (the *current*
+worktree's root) and inspects only the worktree's own index/working tree (`git diff --cached`,
+`git show :file`). `core.hooksPath` is the relative `.husky/_`, which git resolves per-worktree, so
+the hook fires in the worktree that has a `.husky/` and is a silent no-op everywhere else. **Do not**
+introduce a base-ref diff against `origin/main` (e.g. a future CI `ready.yml`) that assumes the
+main checkout — diff against the worktree's own upstream (`@{u}...HEAD`) instead. No hardcoded
+paths, no `..`, no reaching across worktrees.
+
 - **Secret-encryption guard** (`scripts/check-env-encryption.sh`, inside `ready`): refuses to
   commit a staged secret key (`GEMINI_API_KEY`, `PARALLAX_TOKEN`) whose value isn't
   `encrypted:…`. Parallax's `.env` carries non-secret config in plaintext by design
