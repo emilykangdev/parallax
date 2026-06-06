@@ -9,11 +9,16 @@
     "dev:render": "bash scripts/dotenvx-wrap.sh tsx workers/parallax-render/src/index.ts",
     "typecheck": "npm --prefix workers/provider-gemini run typecheck && npm --prefix workers/parallax-render run typecheck",
     "smoke": "bash scripts/dotenvx-wrap.sh tsx scripts/smoke.ts",
-    "env:encrypt": "dotenvx encrypt -f .env"
+    "ready": "bash scripts/ready.sh",
+    "review": "bash scripts/review.sh",
+    "validate-plan": "bash scripts/validate-plan.sh",
+    "env:encrypt": "dotenvx encrypt -f .env",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "1.65.2",
     "@dotenvx/dotenvx-ops": "^0.46.1",
+    "husky": "^9.1.7",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }
